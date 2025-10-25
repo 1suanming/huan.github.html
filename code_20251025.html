@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>图片版手机悬浮窗</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .page-content {
+            height: 2000px;
+            padding: 20px;
+            background: linear-gradient(180deg, #f5f7fa 0%, #e4eaf5 100%);
+        }
+
+        .page-content h1 {
+            color: #1a237e;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .page-content p {
+            color: #37474f;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        /* 图片悬浮窗核心样式 */
+        .float-window {
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            cursor: pointer;
+            touch-action: none;
+            user-select: none;
+            z-index: 9999;
+            transition: all 0.3s ease;
+        }
+
+        /* 悬浮窗图片（适配圆形裁剪） */
+        .float-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        /* 展开状态 */
+        .float-window.expanded {
+            border-radius: 20px;
+            width: 220px;
+            height: auto;
+            padding: 15px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* 展开后隐藏图片，显示菜单 */
+        .float-window.expanded .float-img {
+            display: none;
+        }
+
+        /* 菜单样式 */
+        .float-menu {
+            display: none;
+            list-style: none;
+            width: 100%;
+        }
+
+        .float-window.expanded .float-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .float-menu li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            transition: background 0.2s ease;
+        }
+
+        .float-menu li:hover,
+        .float-menu li:active {
+            background: #f0f2ff;
+        }
+
+        .float-menu li i {
+            font-size: 18px;
+            color: #3949ab;
+            width: 24px;
+            text-align: center;
+        }
+
+        .float-menu li span {
+            font-size: 15px;
+            color: #1a237e;
+        }
+
+        /* 关闭按钮 */
+        .close-btn {
+            display: none;
+            align-self: flex-end;
+            font-size: 18px;
+            color: #3949ab;
+            cursor: pointer;
+        }
+
+        .float-window.expanded .close-btn {
+            display: block;
+        }
+
+        /* 拖拽反馈 */
+        .float-window.dragging {
+            opacity: 0.8;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+    <div class="page-content">
+        <h1>图片悬浮窗演示</h1>
+        <p>点击右下角的图片悬浮窗，可展开功能菜单；长按图片可拖拽移动位置，适配手机触摸操作。</p>
+        <p style="margin-top: 500px;">滚动到页面中间，体验返回顶部功能；点击菜单选项后悬浮窗会自动收起。</p>
+    </div>
+
+    <!-- 图片悬浮窗 -->
+    <div class="float-window" id="floatWindow">
+        <!-- 悬浮窗图片（替换为你的图片链接） -->
+        <img src="https://你的图片链接.jpg" alt="悬浮窗图片" class="float-img" id="floatImg">
+        
+        <!-- 展开后的菜单 -->
+        <div class="close-btn" onclick="toggleFloatWindow()">
+            <<i class="fa fa-times"></</i>
+        </div>
+        <ul class="float-menu" id="floatMenu">
+            <li onclick="scrollToTop()">
+                <<i class="fa fa-arrow-up"></</i>
+                <span>返回顶部</span>
+            </li>
+            <li onclick="openLink('https://m.baidu.com')">
+                <<i class="fa fa-search"></</i>
+                <span>打开百度</span>
+            </li>
+            <li onclick="toggleDarkMode()">
+                <<i class="fa fa-moon-o"></</i>
+                <span>深色模式</span>
+            </li>
+        </ul>
+    </div>
+
+    <script>
+        const floatWindow = document.getElementById('floatWindow');
+        const floatMenu = document.getElementById('floatMenu');
+
+        // 展开/收起控制
+        function toggleFloatWindow() {
+            floatWindow.classList.toggle('expanded');
+            if (!floatWindow.classList.contains('expanded')) {
+                floatWindow.style.bottom = '30px';
+                floatWindow.style.right = '20px';
+            }
+        }
+
+        // 点击图片展开菜单
+        document.getElementById('floatImg').addEventListener('click', toggleFloatWindow);
+
+        // 拖拽功能（适配手机触摸）
+        let isDragging = false;
+        let startX, startY, windowX, windowY;
+
+        floatWindow.addEventListener('touchstart', startDrag);
+        floatWindow.addEventListener('mousedown', startDrag);
+
+        function startDrag(e) {
+            if (floatWindow.classList.contains('expanded')) return;
+            isDragging = true;
+            floatWindow.classList.add('dragging');
+            
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            const rect = floatWindow.getBoundingClientRect();
+            startX = clientX - rect.left;
+            startY = clientY - rect.top;
+            e.preventDefault();
+        }
+
+        document.addEventListener('touchmove', dragMove);
+        document.addEventListener('mousemove', dragMove);
+
+        function dragMove(e) {
+            if (!isDragging) return;
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const windowWidth = floatWindow.offsetWidth;
+            const windowHeight = floatWindow.offsetHeight;
+
+            windowX = clientX - startX;
+            windowX = Math.max(0, Math.min(windowX, screenWidth - windowWidth));
+            windowY = clientY - startY;
+            windowY = Math.max(0, Math.min(windowY, screenHeight - windowHeight - 20));
+
+            floatWindow.style.left = `${windowX}px`;
+            floatWindow.style.top = `${windowY}px`;
+            floatWindow.style.bottom = 'auto';
+            floatWindow.style.right = 'auto';
+        }
+
+        document.addEventListener('touchend', endDrag);
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('mouseleave', endDrag);
+
+        function endDrag() {
+            if (isDragging) {
+                isDragging = false;
+                floatWindow.classList.remove('dragging');
+            }
+        }
+
+        // 菜单功能
+        function scrollToTop() {
+            window.scrollTo({top: 0, behavior: 'smooth'});
+            toggleFloatWindow();
+        }
+
+        function openLink(url) {
+            window.open(url, '_blank');
+            toggleFloatWindow();
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            document.body.style.background = isDark ? '#121212' : '';
+            document.querySelector('.page-content').style.background = isDark 
+                ? 'linear-gradient(180deg, #1e1e1e 0%, #0a0a0a 100%)' 
+                : 'linear-gradient(180deg, #f5f7fa 0%, #e4eaf5 100%)';
+            document.querySelector('.page-content h1').style.color = isDark ? '#bb86fc' : '#1a237e';
+            document.querySelector('.page-content p').style.color = isDark ? '#e0e0e0' : '#37474f';
+            toggleFloatWindow();
+        }
+    </script>
+</body>
+</html>
